@@ -64,6 +64,7 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
     public enum Position {
         case top
         case bottom
+        case center
     }
 
     public struct PopupParameters {
@@ -242,34 +243,51 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
             case .`default`:
                 return 0
             case .toast:
-                if position == .bottom {
+                switch position {
+                case .bottom:
                     return screenHeight/2 - sheetContentRect.height/2
-                } else {
+                case .top:
                     return -screenHeight/2 + sheetContentRect.height/2
+                case .center:
+                    return 0
                 }
             case .floater(let verticalPadding, let useSafeAreaInset):
-                if position == .bottom {
+                switch position {
+                case .bottom:
                     return screenHeight/2 - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
-                } else {
+                case .top:
                     return -screenHeight/2 + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
+                case .center:
+                    return 0
                 }
             }
         }
 
         switch type {
         case .`default`:
-            return -presenterContentRect.midY + screenHeight/2
+            switch position {
+            case .center:
+                return 0
+            default:
+                return -presenterContentRect.midY + screenHeight/2
+            }
         case .toast:
-            if position == .bottom {
+            switch position {
+            case .bottom:
                 return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2
-            } else {
+            case .top:
                 return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2
+            case .center:
+                return 0
             }
         case .floater(let verticalPadding, let useSafeAreaInset):
-            if position == .bottom {
+            switch position {
+            case .bottom:
                 return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
-            } else {
+            case .top:
                 return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
+            case .center:
+                return 0
             }
         }
     }
