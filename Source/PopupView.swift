@@ -238,72 +238,79 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
     
     /// The offset when the popup is displayed - without this offset they'd be exactly in the middle
     private var displayedOffset: CGFloat {
-        if isOpaque {
+        if position == .center {
+            return 0
+        } else {
+            if isOpaque {
+                switch type {
+                case .`default`:
+                    return 0
+                case .toast:
+                    switch position {
+                    case .bottom:
+                        return screenHeight/2 - sheetContentRect.height/2
+                    case .top:
+                        return -screenHeight/2 + sheetContentRect.height/2
+                    case .center:
+                        return 0
+                    }
+                case .floater(let verticalPadding, let useSafeAreaInset):
+                    switch position {
+                    case .bottom:
+                        return screenHeight/2 - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
+                    case .top:
+                        return -screenHeight/2 + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
+                    case .center:
+                        return 0
+                    }
+                }
+            }
+            
             switch type {
             case .`default`:
-                return 0
+                switch position {
+                case .center:
+                    return 0
+                default:
+                    return -presenterContentRect.midY + screenHeight/2
+                }
             case .toast:
                 switch position {
                 case .bottom:
-                    return screenHeight/2 - sheetContentRect.height/2
+                    return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2
                 case .top:
-                    return -screenHeight/2 + sheetContentRect.height/2
+                    return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2
                 case .center:
                     return 0
                 }
             case .floater(let verticalPadding, let useSafeAreaInset):
                 switch position {
                 case .bottom:
-                    return screenHeight/2 - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
+                    return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
                 case .top:
-                    return -screenHeight/2 + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
+                    return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
                 case .center:
                     return 0
                 }
-            }
-        }
-
-        switch type {
-        case .`default`:
-            switch position {
-            case .center:
-                return 0
-            default:
-                return -presenterContentRect.midY + screenHeight/2
-            }
-        case .toast:
-            switch position {
-            case .bottom:
-                return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2
-            case .top:
-                return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2
-            case .center:
-                return 0
-            }
-        case .floater(let verticalPadding, let useSafeAreaInset):
-            switch position {
-            case .bottom:
-                return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
-            case .top:
-                return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
-            case .center:
-                return 0
             }
         }
     }
 
     /// The offset when the popup is hidden
     private var hiddenOffset: CGFloat {
-        if position == .top {
+        switch position {
+        case .top:
             if presenterContentRect.isEmpty {
                 return -1000
             }
             return -presenterContentRect.midY - sheetContentRect.height/2 - 5
-        } else {
+        case .bottom:
             if presenterContentRect.isEmpty {
                 return 1000
             }
             return screenHeight - presenterContentRect.midY + sheetContentRect.height/2 + 5
+        case .center:
+            return screenHeight/2
         }
     }
 
