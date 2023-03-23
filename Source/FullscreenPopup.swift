@@ -136,7 +136,7 @@ public struct FullscreenPopup<Item: Equatable, PopupContent: View>: ViewModifier
                 item = nil
             }
             .edgesIgnoringSafeArea(.all)
-            .animation(.linear(duration: 0.2), value: opacity)
+            .animation(.linear(duration: self.params.dissapearDuration), value: opacity)
     }
 
     func constructPopup() -> some View {
@@ -169,13 +169,20 @@ public struct FullscreenPopup<Item: Equatable, PopupContent: View>: ViewModifier
             }
         } else {
             dispatchWorkHolder.work?.cancel()
-            shouldShowContent = false // this will cause currentOffset change thus triggering the sliding hiding animation
-            opacity = 0
-            // do the rest once the animation is finished (see onAnimationCompleted())
-            performWithDelay(0.3) { // TEMP: imitate onAnimationCompleted for now
-                onAnimationCompleted()
+            closeAnimation {
+                opacity = 0
+            } completion: {
+                shouldShowContent = false
+                performWithDelay(self.params.dissapearDuration) { // TEMP: imitate onAnimationCompleted for now
+                    onAnimationCompleted()
+                }
             }
         }
+    }
+    
+    func closeAnimation(body: @escaping () -> Void, completion: @escaping () -> Void) {
+        body()
+        completion()
     }
 
     func onAnimationCompleted() -> () {
@@ -214,4 +221,16 @@ public struct FullscreenPopup<Item: Equatable, PopupContent: View>: ViewModifier
         }
     }
 
+}
+
+extension View {
+
+    /// Calls the completion handler whenever an animation on the given value completes.
+    /// - Parameters:
+    ///   - value: The value to observe for animations.
+    ///   - completion: The completion callback to call once the animation completes.
+    /// - Returns: A modified `View` instance with the observer attached.
+    func onAnimationCompleted<Value: VectorArithmetic>(for value: Value, completion: @escaping () -> Void) -> ModifiedContent<Self, AnimationCompletionObserverModifier<Value>> {
+        return modifier(AnimationCompletionObserverModifier(observedValue: value, completion: completion))
+    }
 }

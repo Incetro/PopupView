@@ -36,6 +36,7 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
         self.dragToDismiss = params.dragToDismiss
         self.closeOnTap = params.closeOnTap
         self.isOpaque = params.isOpaque
+        self.dissapearDuration = params.dissapearDuration
 
         self.view = view
 
@@ -85,6 +86,8 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
 
         /// Should close on tap outside - default is `true`
         var closeOnTapOutside: Bool = false
+        
+        var dissapearDuration: Double = 0.3
 
         /// Background color for outside area
         var backgroundColor: Color = .clear
@@ -93,6 +96,13 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
         var isOpaque: Bool = false
 
         var dismissCallback: (DismissSource) -> () = {_ in}
+        
+        
+        public func dissapearDuration(_ dissapearDuration: Double) -> PopupParameters {
+            var params = self
+            params.dissapearDuration = dissapearDuration
+            return params
+        }
 
         public func type(_ type: PopupType) -> PopupParameters {
             var params = self
@@ -196,6 +206,21 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
     var position: Position
 
     var animation: Animation
+    var dissapearDuration: Double
+    var closeAnimation: Animation {
+        switch animation {
+        case .easeInOut:
+            return .easeInOut(duration: dissapearDuration)
+        case .linear:
+            return .linear(duration: dissapearDuration)
+        case .easeIn:
+            return .easeIn(duration: dissapearDuration)
+        case .easeOut:
+            return .easeOut(duration: dissapearDuration)
+        default:
+            return animation
+        }
+    }
 
     /// Should close on tap - default is `true`
     var closeOnTap: Bool
@@ -238,60 +263,56 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
     
     /// The offset when the popup is displayed - without this offset they'd be exactly in the middle
     private var displayedOffset: CGFloat {
-        if position == .center {
-            return 0
-        } else {
-            if isOpaque {
-                switch type {
-                case .`default`:
-                    return 0
-                case .toast:
-                    switch position {
-                    case .bottom:
-                        return screenHeight/2 - sheetContentRect.height/2
-                    case .top:
-                        return -screenHeight/2 + sheetContentRect.height/2
-                    case .center:
-                        return 0
-                    }
-                case .floater(let verticalPadding, let useSafeAreaInset):
-                    switch position {
-                    case .bottom:
-                        return screenHeight/2 - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
-                    case .top:
-                        return -screenHeight/2 + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
-                    case .center:
-                        return 0
-                    }
-                }
-            }
-            
+        if isOpaque {
             switch type {
             case .`default`:
-                switch position {
-                case .center:
-                    return 0
-                default:
-                    return -presenterContentRect.midY + screenHeight/2
-                }
+                return 0
             case .toast:
                 switch position {
                 case .bottom:
-                    return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2
+                    return screenHeight/2 - sheetContentRect.height/2
                 case .top:
-                    return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2
+                    return -screenHeight/2 + sheetContentRect.height/2
                 case .center:
                     return 0
                 }
             case .floater(let verticalPadding, let useSafeAreaInset):
                 switch position {
                 case .bottom:
-                    return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
+                    return screenHeight/2 - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
                 case .top:
-                    return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
+                    return -screenHeight/2 + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
                 case .center:
                     return 0
                 }
+            }
+        }
+        
+        switch type {
+        case .`default`:
+            switch position {
+            case .center:
+                return 0
+            default:
+                return -presenterContentRect.midY + screenHeight/2
+            }
+        case .toast:
+            switch position {
+            case .bottom:
+                return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2
+            case .top:
+                return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2
+            case .center:
+                return 0
+            }
+        case .floater(let verticalPadding, let useSafeAreaInset):
+            switch position {
+            case .bottom:
+                return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
+            case .top:
+                return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
+            case .center:
+                return 0
             }
         }
     }
@@ -310,13 +331,18 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
             }
             return screenHeight - presenterContentRect.midY + sheetContentRect.height/2 + 5
         case .center:
-            return screenHeight/2
+            return 0
         }
     }
 
     /// The current offset, based on the **presented** property
     private var currentOffset: CGFloat {
         return shouldShowContent ? displayedOffset : hiddenOffset
+    }
+    
+    /// The current offset, based on the **presented** property
+    private var currentOpacity: CGFloat {
+        return shouldShowContent ? 1.0 : 0.0
     }
 
     private var screenSize: CGSize {
@@ -357,10 +383,11 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
                 }
                 .frameGetter($sheetContentRect)
                 .offset(y: currentOffset)
-                .onAnimationCompleted(for: currentOffset) {
+                .opacity(position == .center ? currentOpacity : 1.0)
+                .animation(shouldShowContent ? animation : closeAnimation, value: position == .center ? currentOpacity : currentOffset)
+                .onAnimationCompleted(for: position == .center ? currentOpacity : currentOffset) {
                     //animationCompletedCallback() TEMP: need to fix
                 }
-                .animation(animation, value: currentOffset)
         }
 
         #if !os(tvOS)
@@ -406,5 +433,118 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
     private func dismiss() {
         isPresented = false
         item = nil
+    }
+}
+
+
+// MARK: - StopPopupView
+
+public struct StopPopupView: View {
+    
+    @Binding public var isPresented: Bool
+    
+    public var body: some View {
+        VStack {
+            Spacer()
+                .frame(height: 24)
+                .minimumScaleFactor(0.38)
+            Text("Остановить игру?")
+                .foregroundColor(.black)
+                .font(.system(size: 17, weight: .bold))
+            Spacer()
+                .frame(height: 24)
+                .minimumScaleFactor(0.38)
+            HStack {
+                Spacer()
+                    .frame(width: 24)
+                    .minimumScaleFactor(0.38)
+                Button {
+                    isPresented = false
+                } label: {
+                    HStack{
+                        Spacer()
+                        Text("Остановить")
+                            .lineLimit(1)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.red)
+                            .minimumScaleFactor(0.38)
+                        Spacer()
+                    }
+                }
+                .frame(height: 44)
+                .background(Color.white)
+                .cornerRadius(16)
+                
+                Spacer()
+                    .frame(width: 8)
+                
+                Button {
+                    isPresented = false
+                } label: {
+                    HStack{
+                        Spacer()
+                        Text("Продолжить")
+                            .lineLimit(1)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white)
+                            .minimumScaleFactor(0.38)
+                        Spacer()
+                    }
+                }
+                .frame(height: 44)
+                .background(Color.red)
+                .cornerRadius(16)
+                Spacer()
+                    .frame(width: 24)
+                    .minimumScaleFactor(0.38)
+            }
+            Spacer()
+                .frame(height: 24)
+                .minimumScaleFactor(0.38)
+        }
+        .background(Color.white.cornerRadius(20))
+        .padding(.horizontal, 60)
+    }
+}
+
+struct PopupsState {
+    var showingFirst = false
+    var showingSecond = false
+    var showingThird = false
+    var sheet = false
+}
+
+struct ContentView : View {
+    @State var popups = PopupsState()
+    
+    var body: some View {
+        VStack {
+            Button("show alert", action: {popups.showingFirst.toggle()})
+            //Button("show artifact", action: {popups.showingSecond.toggle()})
+            Button("show stop", action: {popups.showingThird.toggle()})
+        }
+        .alert(isPresented: $popups.showingFirst) {
+            Alert(
+                title: Text("Title"),
+                message: Text("Message"),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+        .popup(isPresented: $popups.showingThird) {
+            StopPopupView(isPresented: $popups.showingThird)
+        } customize: {
+            $0
+                .position(.center)
+                .dissapearDuration(0.6)
+                .animation(.easeInOut(duration: 0.6))
+                .closeOnTap(false)
+                .backgroundColor(.black.opacity(0.4))
+        }
+    }
+}
+
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
     }
 }
