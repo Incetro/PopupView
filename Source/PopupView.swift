@@ -36,6 +36,7 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
         self.dragToDismiss = params.dragToDismiss
         self.closeOnTap = params.closeOnTap
         self.isOpaque = params.isOpaque
+        self.dissapearDuration = params.dissapearDuration
 
         self.view = view
 
@@ -64,6 +65,7 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
     public enum Position {
         case top
         case bottom
+        case center
     }
 
     public struct PopupParameters {
@@ -84,6 +86,8 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
 
         /// Should close on tap outside - default is `true`
         var closeOnTapOutside: Bool = false
+        
+        var dissapearDuration: Double = 0.3
 
         /// Background color for outside area
         var backgroundColor: Color = .clear
@@ -92,6 +96,13 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
         var isOpaque: Bool = false
 
         var dismissCallback: (DismissSource) -> () = {_ in}
+        
+        
+        public func dissapearDuration(_ dissapearDuration: Double) -> PopupParameters {
+            var params = self
+            params.dissapearDuration = dissapearDuration
+            return params
+        }
 
         public func type(_ type: PopupType) -> PopupParameters {
             var params = self
@@ -195,6 +206,21 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
     var position: Position
 
     var animation: Animation
+    var dissapearDuration: Double
+    var closeAnimation: Animation {
+        switch animation {
+        case .easeInOut:
+            return .easeInOut(duration: dissapearDuration)
+        case .linear:
+            return .linear(duration: dissapearDuration)
+        case .easeIn:
+            return .easeIn(duration: dissapearDuration)
+        case .easeOut:
+            return .easeOut(duration: dissapearDuration)
+        default:
+            return animation
+        }
+    }
 
     /// Should close on tap - default is `true`
     var closeOnTap: Bool
@@ -242,56 +268,81 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
             case .`default`:
                 return 0
             case .toast:
-                if position == .bottom {
+                switch position {
+                case .bottom:
                     return screenHeight/2 - sheetContentRect.height/2
-                } else {
+                case .top:
                     return -screenHeight/2 + sheetContentRect.height/2
+                case .center:
+                    return 0
                 }
             case .floater(let verticalPadding, let useSafeAreaInset):
-                if position == .bottom {
+                switch position {
+                case .bottom:
                     return screenHeight/2 - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
-                } else {
+                case .top:
                     return -screenHeight/2 + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
+                case .center:
+                    return 0
                 }
             }
         }
-
+        
         switch type {
         case .`default`:
-            return -presenterContentRect.midY + screenHeight/2
+            switch position {
+            case .center:
+                return 0
+            default:
+                return -presenterContentRect.midY + screenHeight/2
+            }
         case .toast:
-            if position == .bottom {
+            switch position {
+            case .bottom:
                 return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2
-            } else {
+            case .top:
                 return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2
+            case .center:
+                return 0
             }
         case .floater(let verticalPadding, let useSafeAreaInset):
-            if position == .bottom {
+            switch position {
+            case .bottom:
                 return presenterContentRect.minY + safeAreaInsets.bottom + presenterContentRect.height - presenterContentRect.midY - sheetContentRect.height/2 - verticalPadding + (useSafeAreaInset ? -safeAreaInsets.bottom : 0)
-            } else {
+            case .top:
                 return presenterContentRect.minY - safeAreaInsets.top - presenterContentRect.midY + sheetContentRect.height/2 + verticalPadding + (useSafeAreaInset ? safeAreaInsets.top : 0)
+            case .center:
+                return 0
             }
         }
     }
 
     /// The offset when the popup is hidden
     private var hiddenOffset: CGFloat {
-        if position == .top {
+        switch position {
+        case .top:
             if presenterContentRect.isEmpty {
                 return -1000
             }
             return -presenterContentRect.midY - sheetContentRect.height/2 - 5
-        } else {
+        case .bottom:
             if presenterContentRect.isEmpty {
                 return 1000
             }
             return screenHeight - presenterContentRect.midY + sheetContentRect.height/2 + 5
+        case .center:
+            return 0
         }
     }
 
     /// The current offset, based on the **presented** property
     private var currentOffset: CGFloat {
         return shouldShowContent ? displayedOffset : hiddenOffset
+    }
+    
+    /// The current offset, based on the **presented** property
+    private var currentOpacity: CGFloat {
+        return shouldShowContent ? 1.0 : 0.0
     }
 
     private var screenSize: CGSize {
@@ -332,10 +383,11 @@ public struct Popup<Item: Equatable, PopupContent: View>: ViewModifier {
                 }
                 .frameGetter($sheetContentRect)
                 .offset(y: currentOffset)
-                .onAnimationCompleted(for: currentOffset) {
+                .opacity(position == .center ? currentOpacity : 1.0)
+                .animation(shouldShowContent ? animation : closeAnimation, value: position == .center ? currentOpacity : currentOffset)
+                .onAnimationCompleted(for: position == .center ? currentOpacity : currentOffset) {
                     //animationCompletedCallback() TEMP: need to fix
                 }
-                .animation(animation, value: currentOffset)
         }
 
         #if !os(tvOS)
